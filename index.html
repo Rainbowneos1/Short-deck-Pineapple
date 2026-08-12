@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数字卡牌 - 双人热座游戏</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --panel: #16213e;
+            --panel2: #0f3460;
+            --text: #e0e0e0;
+            --gold: #ffd700;
+            --red: #e63946;
+            --green: #2a9d8f;
+            --card-red-bg: #f4a4a4;
+            --card-yellow-bg: #f4e0a4;
+            --card-blue-bg: #1a3a7a;
+            --card-green-bg: #1a6a3a;
+            --card-red-text: #1a1a1a;
+            --card-yellow-text: #1a1a1a;
+            --card-blue-text: #ffffff;
+            --card-green-text: #ffffff;
+            --board-cell: rgba(255, 255, 255, 0.08);
+            --board-cell-hover: rgba(255, 255, 255, 0.2);
+            --btn-bg: #4a90d9;
+            --btn-hover: #357abd;
+            --btn-danger: #e63946;
+            --btn-special: #9b59b6;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #topbar {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #topbar .info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        #topbar .info .round-display {
+            background: var(--panel2);
+            padding: 6px 14px;
+            border-radius: 8px;
+            color: var(--gold);
+            font-size: 1.15rem;
+        }
+        #topbar .score-display {
+            display: flex;
+            gap: 16px;
+        }
+        .player-score-box {
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            letter-spacing: 1px;
+        }
+        .player-score-box.p1 {
+            background: #2d4a7a;
+            color: #ffb3b3;
+        }
+        .player-score-box.p2 {
+            background: #4a2d5a;
+            color: #b3ffb3;
+        }
+        #banner {
+            width: 100%;
+            max-width: 1200px;
+            text-align: center;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+            min-height: 52px;
+            background: var(--panel);
+            color: var(--text);
+        }
+        #banner.active-player1 {
+            background: #2d4a7a;
+            color: #ffb3b3;
+            box-shadow: 0 0 20px rgba(230, 57, 70, 0.5);
+        }
+        #banner.active-player2 {
+            background: #4a2d5a;
+            color: #b3ffb3;
+            box-shadow: 0 0 20px rgba(42, 157, 143, 0.5);
+        }
+        #banner.settlement {
+            background: #3a3a1a;
+            color: #ffd700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        #game-area {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .player-zone {
+            flex: 1;
+            min-width: 340px;
+            max-width: 560px;
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+        }
+        .player-zone.active-turn {
+            border-color: var(--gold);
+            box-shadow: 0 0 24px rgba(255, 215, 0, 0.3);
+        }
+        .player-zone .zone-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 8px;
+            background: var(--panel2);
+        }
+        .player-zone .zone-header .pname {
+            padding: 4px 12px;
+            border-radius: 6px;
+        }
+        .player-zone .zone-header .pname.p1c {
+            color: #ffb3b3;
+        }
+        .player-zone .zone-header .pname.p2c {
+            color: #b3ffb3;
+        }
+        .player-zone .zone-header .special-badge {
+            font-size: 0.8rem;
+            background: #9b59b6;
+            color: #fff;
+            padding: 2px 10px;
+            border-radius: 20px;
+            display: none;
+        }
+        .player-zone .zone-header .special-badge.active {
+            display: inline-block;
+            animation: pulse-special 1.2s infinite;
+        }
+        @keyframes pulse-special {
+            0%,
+            100% {
+                box-shadow: 0 0 6px #9b59b6;
+            }
+            50% {
+                box-shadow: 0 0 18px #c39bd3;
+            }
+        }
+        .board-row {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            align-items: center;
+        }
+        .board-row-label {
+            font-size: 0.8rem;
+            color: #aaa;
+            width: 20px;
+            text-align: center;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .board-cell {
+            width: 58px;
+            height: 76px;
+            border-radius: 8px;
+            background: var(--board-cell);
+            border: 2px dashed rgba(255, 255, 255, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .board-cell:hover {
+            background: var(--board-cell-hover);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        .board-cell.filled {
+            border-style: solid;
+            border-color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+        }
+        .board-cell.selected-target {
+            border-color: var(--gold);
+            box-shadow: 0 0 12px rgba(255, 215, 0, 0.7);
+        }
+        .board-cell.invalid-drop {
+            border-color: #e63946;
+            box-shadow: 0 0 12px rgba(230, 57, 70, 0.5);
+            animation: shake 0.3s;
+        }
+        @keyframes shake {
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+            25% {
+                transform: translateX(-4px);
+            }
+            75% {
+                transform: translateX(4px);
+            }
+        }
+        .hand-area {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 90px;
+        }
+        .hand-label {
+            font-size: 0.8rem;
+            color: #ccc;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        .hand-cards {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+            min-height: 80px;
+            align-items: center;
+        }
+        .card {
+            width: 54px;
+            height: 72px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: 700;
+            border: 2px solid rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+            position: relative;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            flex-shrink: 0;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 14px rgba(0, 0, 0, 0.5);
+        }
+        .card.selected {
+            border-color: var(--gold);
+            box-shadow: 0 0 16px rgba(255, 215, 0, 0.8);
+            transform: translateY(-4px);
+        }
+        .card .card-num {
+            font-size: 1.3rem;
+            line-height: 1.2;
+        }
+        .card .card-num.small-num {
+            font-size: 1.05rem;
+        }
+        .card .card-color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-top: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.3);
+        }
+        .card.color-red {
+            background: var(--card-red-bg);
+            color: var(--card-red-text);
+        }
+        .card.color-yellow {
+            background: var(--card-yellow-bg);
+            color: var(--card-yellow-text);
+        }
+        .card.color-blue {
+            background: var(--card-blue-bg);
+            color: var(--card-blue-text);
+        }
+        .card.color-green {
+            background: var(--card-green-bg);
+            color: var(--card-green-text);
+        }
+        .board-cell .card {
+            width: 100%;
+            height: 100%;
+            border: none;
+            box-shadow: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .board-cell .card .card-num {
+            font-size: 1.2rem;
+        }
+        .board-cell .card .card-num.small-num {
+            font-size: 1rem;
+        }
+        #controls {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn {
+            padding: 10px 24px;
+            border-radius: 10px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            color: #fff;
+            background: var(--btn-bg);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+        }
+        .btn:hover {
+            background: var(--btn-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+        }
+        .btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+        .btn.btn-danger {
+            background: var(--btn-danger);
+        }
+        .btn.btn-danger:hover {
+            background: #c42d3a;
+        }
+        .btn.btn-special {
+            background: var(--btn-special);
+        }
+        .btn.btn-special:hover {
+            background: #7d3c98;
+        }
+        .btn.btn-green {
+            background: #2a9d8f;
+        }
+        .btn.btn-green:hover {
+            background: #21867a;
+        }
+        .btn.btn-gold {
+            background: #b8860b;
+        }
+        .btn.btn-gold:hover {
+            background: #a0750a;
+        }
+        #deck-info {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 4px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .modal {
+            background: var(--panel);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 800px;
+            width: 95%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            border: 2px solid var(--gold);
+        }
+        .modal h2 {
+            text-align: center;
+            margin-bottom: 16px;
+            color: var(--gold);
+            letter-spacing: 2px;
+        }
+        .modal .settle-row {
+            display: flex;
+            justify-content: space-around;
+            gap: 16px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .modal .settle-player {
+            flex: 1;
+            min-width: 260px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .modal .settle-player h3 {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .modal .settle-player.p1s h3 {
+            color: #ffb3b3;
+        }
+        .modal .settle-player.p2s h3 {
+            color: #b3ffb3;
+        }
+        .settle-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 8px;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .settle-line .label {
+            color: #ccc;
+        }
+        .settle-line .value {
+            font-weight: 600;
+        }
+        .settle-line .value.highlight {
+            color: var(--gold);
+        }
+        .settle-line .value.bust {
+            color: #e63946;
+            animation: flash-red 0.8s infinite;
+        }
+        @keyframes flash-red {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.4;
+            }
+        }
+        .settle-line .value.special-trigger {
+            color: #c39bd3;
+            animation: pulse-special 1s infinite;
+        }
+        .settle-line .value.sweep {
+            color: #ffd700;
+            font-weight: 800;
+            animation: pulse-gold 0.7s infinite;
+        }
+        @keyframes pulse-gold {
+            0%,
+            100% {
+                text-shadow: 0 0 4px #ffd700;
+            }
+            50% {
+                text-shadow: 0 0 16px #ffd700;
+            }
+        }
+        .modal .btn-row {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .final-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 0.9rem;
+        }
+        .final-table th,
+        .final-table td {
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 6px 10px;
+            text-align: center;
+        }
+        .final-table th {
+            background: var(--panel2);
+            color: #fff;
+            font-weight: 700;
+        }
+        .final-table .total-row td {
+            font-weight: 800;
+            background: rgba(255, 215, 0, 0.15);
+            color: #ffd700;
+        }
+        .final-table .vs-row td {
+            color: #ccc;
+            font-style: italic;
+        }
+        .settle-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-left: 4px;
+        }
+        .settle-badge.bust-badge {
+            background: #e63946;
+            color: #fff;
+        }
+        .settle-badge.sweep-badge {
+            background: #ffd700;
+            color: #1a1a1a;
+        }
+        .settle-badge.special-badge2 {
+            background: #9b59b6;
+            color: #fff;
+        }
+        @media (max-width: 750px) {
+            .board-cell {
+                width: 44px;
+                height: 60px;
+                border-radius: 5px;
+            }
+            .card {
+                width: 42px;
+                height: 58px;
+                border-radius: 4px;
+            }
+            .card .card-num {
+                font-size: 1rem;
+            }
+            .card .card-num.small-num {
+                font-size: 0.8rem;
+            }
+            .player-zone {
+                min-width: 280px;
+                padding: 8px;
+            }
+            #topbar {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+            #banner {
+                font-size: 1.1rem;
+                padding: 10px;
+            }
+            .btn {
+                padding: 8px 16px;
+                font-size: 0.85rem;
+            }
+            .modal {
+                padding: 14px;
+            }
+            .board-cell .card .card-num {
+                font-size: 0.9rem;
+            }
+            .board-cell .card .card-num.small-num {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="topbar">
+        <div class="info">
+            <span class="round-display" id="roundDisplay">第1局</span>
+            <span id="turnIndicator" style="color:#aaa;font-size:0.9rem;">准备开始</span>
+        </div>
+        <div class="score-display">
+            <span class="player-score-box p1" id="scoreP1">玩家1 大分: 0</span>
+            <span class="player-score-box p2" id="scoreP2">玩家2 大分: 0</span>
+        </div>
+    </div>
+
+    <div id="banner">准备开始游戏</div>
+
+    <div id="game-area">
+        <div class="player-zone" id="zoneP1">
+            <div class="zone-header">
+                <span class="pname p1c">🎮 玩家1</span>
+                <span class="special-badge" id="specialP1">✨ 特殊牌型</span>
+            </div>
+            <div id="boardP1"></div>
+            <div class="hand-area">
+                <div class="hand-label">手牌</div>
+                <div class="hand-cards" id="handP1"></div>
+            </div>
+        </div>
+        <div class="player-zone" id="zoneP2">
+            <div class="zone-header">
+                <span class="pname p2c">🎮 玩家2</span>
+                <span class="special-badge" id="specialP2">✨ 特殊牌型</span>
+            </div>
+            <div id="boardP2"></div>
+            <div class="hand-area">
+                <div class="hand-label">手牌</div>
+                <div class="hand-cards" id="handP2"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="controls">
+        <button class="btn" id="btnConfirm" disabled>确认放置</button>
+        <button class="btn btn-green" id="btnNext" style="display:none;">继续下一局</button>
+        <button class="btn btn-special" id="btnExtra" style="display:none;">继续额外局</button>
+        <button class="btn btn-gold" id="btnStart" style="display:inline-block;">开始游戏</button>
+        <button class="btn btn-danger" id="btnReset" style="display:none;">重新开始</button>
+    </div>
+    <div id="deck-info">牌堆剩余: 36</div>
+
+    <div class="modal-overlay" id="settleModal" style="display:none;">
+        <div class="modal" id="settleContent"></div>
+    </div>
+
+    <script>
+        // ==================== 核心常量与工具 ====================
+        const COLORS = ['red', 'yellow', 'blue', 'green'];
+        const NUMBERS = [6, 7, 8, 9, 10, 11, 12, 13, 14];
+        const COLOR_NAMES = { red: '红', yellow: '黄', blue: '蓝', green: '绿' };
+        const SMALL_NUM_THRESHOLD = 10;
+
+        const RANK_NAMES = ['散牌', '单对', '两对', '三条', '顺子', '葫芦', '同花', '四条', '同花顺'];
+        const RANK_VALUES = { '散牌': 0, '单对': 1, '两对': 2, '三条': 3, '顺子': 4, '葫芦': 5, '同花': 6, '四条': 7, '同花顺': 8 };
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function createDeck() {
+            const deck = [];
+            for (const color of COLORS) {
+                for (const num of NUMBERS) {
+                    deck.push({ number: num, color: color, id: color + '_' + num + '_' + Math.random().toString(36).substr(2, 5) });
+                }
+            }
+            return deck;
+        }
+
+        function getCardDisplayName(card) {
+            return COLOR_NAMES[card.color] + ' ' + card.number;
+        }
+
+        function isSmallNumFont(num) {
+            return num >= SMALL_NUM_THRESHOLD;
+        }
+
+        function getCardColorClass(color) {
+            return 'color-' + color;
+        }
+
+        // ==================== 牌型判断 ====================
+        function getNumberCounts(cards) {
+            const counts = {};
+            for (const c of cards) {
+                counts[c.number] = (counts[c.number] || 0) + 1;
+            }
+            return counts;
+        }
+
+        function getColorCounts(cards) {
+            const counts = {};
+            for (const c of cards) {
+                counts[c.color] = (counts[c.color] || 0) + 1;
+            }
+            return counts;
+        }
+
+        function sortByNumberDesc(cards) {
+            return [...cards].sort((a, b) => b.number - a.number);
+        }
+
+        function sortByNumberAsc(cards) {
+            return [...cards].sort((a, b) => a.number - b.number);
+        }
+
+        function isConsecutiveNumbers(nums) {
+            const sorted = [...nums].sort((a, b) => a - b);
+            for (let i = 1; i < sorted.length; i++) {
+                if (sorted[i] - sorted[i - 1] !== 1) return false;
+            }
+            return true;
+        }
+
+        function isSpecialLowStraight(nums) {
+            const sorted = [...nums].sort((a, b) => a - b);
+            return sorted.length === 5 && sorted[0] === 6 && sorted[1] === 7 && sorted[2] === 8 && sorted[3] === 9 && sorted[4] ===
+                14;
+        }
+
+        function getStraightEffectiveHigh(cards) {
+            const nums = cards.map(c => c.number);
+            if (isSpecialLowStraight(nums)) return 9;
+            const sorted = sortByNumberAsc(cards);
+            return sorted[sorted.length - 1].number;
+        }
+
+        function isStraight5(cards) {
+            if (cards.length !== 5) return false;
+            const nums = cards.map(c => c.number);
+            if (isConsecutiveNumbers(nums)) return true;
+            if (isSpecialLowStraight(nums)) return true;
+            return false;
+        }
+
+        function judge3Cards(cards) {
+            if (cards.length !== 3) throw new Error('judge3Cards需要3张牌');
+            const counts = getNumberCounts(cards);
+            const nums = sortByNumberDesc(cards).map(c => c.number);
+            const uniqueNums = Object.keys(counts).map(Number).sort((a, b) => b - a);
+            if (uniqueNums.length === 1) {
+                return { rank: RANK_VALUES['三条'], rankName: '三条', compareValues: [uniqueNums[0], 0, 0] };
+            } else if (uniqueNums.length === 2) {
+                let pairNum, singleNum;
+                for (const [num, cnt] of Object.entries(counts)) {
+                    if (cnt === 2) pairNum = Number(num);
+                    if (cnt === 1) singleNum = Number(num);
+                }
+                return { rank: RANK_VALUES['单对'], rankName: '单对', compareValues: [pairNum, singleNum, 0, 0, 0] };
+            } else {
+                return { rank: RANK_VALUES['散牌'], rankName: '散牌', compareValues: [...nums, 0, 0] };
+            }
+        }
+
+        function judge5Cards(cards) {
+            if (cards.length !== 5) throw new Error('judge5Cards需要5张牌');
+            const counts = getNumberCounts(cards);
+            const colorCounts = getColorCounts(cards);
+            const uniqueNums = Object.keys(counts).map(Number).sort((a, b) => b - a);
+            const numsDesc = sortByNumberDesc(cards).map(c => c.number);
+            const isFlush = Object.keys(colorCounts).length === 1;
+            const isStraight = isStraight5(cards);
+            const hasFour = uniqueNums.some(n => counts[n] === 4);
+            const hasThree = uniqueNums.some(n => counts[n] === 3);
+            const hasPair = uniqueNums.some(n => counts[n] === 2);
+            const pairCount = uniqueNums.filter(n => counts[n] === 2).length;
+
+            if (isFlush && isStraight) {
+                const high = getStraightEffectiveHigh(cards);
+                return { rank: RANK_VALUES['同花顺'], rankName: '同花顺', compareValues: [high] };
+            }
+            if (hasFour) {
+                const fourNum = uniqueNums.find(n => counts[n] === 4);
+                const single = uniqueNums.find(n => counts[n] === 1);
+                return { rank: RANK_VALUES['四条'], rankName: '四条', compareValues: [fourNum, single] };
+            }
+            if (isFlush) {
+                return { rank: RANK_VALUES['同花'], rankName: '同花', compareValues: numsDesc };
+            }
+            if (hasThree && pairCount === 1) {
+                const threeNum = uniqueNums.find(n => counts[n] === 3);
+                const pairNum = uniqueNums.find(n => counts[n] === 2);
+                return { rank: RANK_VALUES['葫芦'], rankName: '葫芦', compareValues: [threeNum, pairNum] };
+            }
+            if (isStraight) {
+                const high = getStraightEffectiveHigh(cards);
+                return { rank: RANK_VALUES['顺子'], rankName: '顺子', compareValues: [high] };
+            }
+            if (hasThree) {
+                const threeNum = uniqueNums.find(n => counts[n] === 3);
+                const singles = uniqueNums.filter(n => counts[n] === 1).sort((a, b) => b - a);
+                return { rank: RANK_VALUES['三条'], rankName: '三条', compareValues: [threeNum, ...singles, 0, 0] };
+            }
+            if (pairCount === 2) {
+                const pairNums = uniqueNums.filter(n => counts[n] === 2).sort((a, b) => b - a);
+                const single = uniqueNums.find(n => counts[n] === 1);
+                return { rank: RANK_VALUES['两对'], rankName: '两对', compareValues: [pairNums[0], pairNums[1], single] };
+            }
+            if (pairCount === 1) {
+                const pairNum = uniqueNums.find(n => counts[n] === 2);
+                const singles = uniqueNums.filter(n => counts[n] === 1).sort((a, b) => b - a);
+                return { rank: RANK_VALUES['单对'], rankName: '单对', compareValues: [pairNum, ...singles, 0, 0, 0] };
+            }
+            return { rank: RANK_VALUES['散牌'], rankName: '散牌', compareValues: numsDesc };
+        }
+
+        function judgeCards(cards) {
+            if (cards.length === 3) return judge3Cards(cards);
+            if (cards.length === 5) return judge5Cards(cards);
+            throw new Error('不支持的牌数: ' + cards.length);
+        }
+
+        function compareJudgeResults(a, b) {
+            if (a.rank !== b.rank) return a.rank - b.rank;
+            const len = Math.max(a.compareValues.length, b.compareValues.length);
+            for (let i = 0; i < len; i++) {
+                const av = a.compareValues[i] !== undefined ? a.compareValues[i] : 0;
+                const bv = b.compareValues[i] !== undefined ? b.compareValues[i] : 0;
+                if (av !== bv) return av - bv;
+            }
+            return 0;
+        }
+
+        function calculateRowScore(rowIndex, cards, judgeResult) {
+            if (rowIndex === 0) {
+                if (judgeResult.rankName === '散牌') return 0;
+                if (judgeResult.rankName === '单对') return judgeResult.compareValues[0] - 5;
+                if (judgeResult.rankName === '三条') return judgeResult.compareValues[0] + 8;
+                return 0;
+            } else if (rowIndex === 1) {
+                const rn = judgeResult.rankName;
+                if (rn === '三条') return 2;
+                if (rn === '顺子') return 4;
+                if (rn === '葫芦') return 8;
+                if (rn === '同花') return 12;
+                if (rn === '四条') return 20;
+                if (rn === '同花顺') {
+                    const nums = cards.map(c => c.number).sort((a, b) => b - a);
+                    if (nums[0] === 14 && nums[1] === 13 && nums[2] === 12 && nums[3] === 11 && nums[4] === 10) return 50;
+                    return 30;
+                }
+                return 0;
+            } else {
+                const rn = judgeResult.rankName;
+                if (rn === '顺子') return 2;
+                if (rn === '葫芦') return 4;
+                if (rn === '同花') return 6;
+                if (rn === '四条') return 10;
+                if (rn === '同花顺') {
+                    const nums = cards.map(c => c.number).sort((a, b) => b - a);
+                    if (nums[0] === 14 && nums[1] === 13 && nums[2] === 12 && nums[3] === 11 && nums[4] === 10) return 25;
+                    return 15;
+                }
+                return 0;
+            }
+        }
+
+        function checkBust(judgeResults) {
+            const cmp1 = compareJudgeResults(judgeResults[0], judgeResults[1]);
+            const cmp2 = compareJudgeResults(judgeResults[1], judgeResults[2]);
+            if (cmp1 >= 0) return true;
+            if (cmp2 > 0) return true;
+            return false;
+        }
+
+        function checkSpecialTrigger(row0Judge, row2Judge, isBust, currentSpecial) {
+            if (isBust) return false;
+            if (!currentSpecial) {
+                if (row0Judge.rankName === '三条') return true;
+                if (row0Judge.rankName === '单对' && row0Judge.compareValues[0] === 14) return true;
+                return false;
+            } else {
+                if (row0Judge.rankName === '三条') return true;
+                if (row2Judge.rankName === '四条' || row2Judge.rankName === '同花顺') return true;
+                return false;
+            }
+        }
+
+        function calculateBigScore(smallScore) {
+            return Math.floor((smallScore + 2) / 5);
+        }
+
+        // ==================== 游戏状态 ====================
+        const TOTAL_NORMAL_ROUNDS = 6;
+        const TOTAL_BOARD_SLOTS = 13;
+        const NORMAL_THREE_TWO_ROUNDS = 4;
+
+        let game = {
+            started: false,
+            normalRound: 1,
+            extraRound: 0,
+            roundKey: 'R1',
+            firstPlayer: 1,
+            secondPlayer: 2,
+            p1Special: false,
+            p2Special: false,
+            p1BigScore: 0,
+            p2BigScore: 0,
+            records: [],
+            deck: [],
+            p1Board: [
+                [],
+                [],
+                []
+            ],
+            p2Board: [
+                [],
+                [],
+                []
+            ],
+            p1Hand: [],
+            p2Hand: [],
+            phase: 'idle',
+            selectedCard: null,
+            selectedTarget: null,
+            requiredPlacements: 0,
+            placedCount: { 1: 0, 2: 0 },
+            currentDecisionPlayer: null,
+            pendingDiscard: { 1: 0, 2: 0 },
+            extraFlow: null,
+            extraFlowStep: 0,
+            normalRoundStep: 0,
+            // 新增：记录当前阶段玩家新放置的牌ID集合，用于限制取回
+            tempPlacedIds: { 1: new Set(), 2: new Set() },
+            // 新增：记录当前阶段发给玩家的总牌数
+            dealtThisTurn: { 1: 0, 2: 0 },
+            settleData: null,
+        };
+
+        // ==================== DOM元素 ====================
+        const $roundDisplay = document.getElementById('roundDisplay');
+        const $turnIndicator = document.getElementById('turnIndicator');
+        const $scoreP1 = document.getElementById('scoreP1');
+        const $scoreP2 = document.getElementById('scoreP2');
+        const $banner = document.getElementById('banner');
+        const $zoneP1 = document.getElementById('zoneP1');
+        const $zoneP2 = document.getElementById('zoneP2');
+        const $boardP1 = document.getElementById('boardP1');
+        const $boardP2 = document.getElementById('boardP2');
+        const $handP1 = document.getElementById('handP1');
+        const $handP2 = document.getElementById('handP2');
+        const $btnConfirm = document.getElementById('btnConfirm');
+        const $btnNext = document.getElementById('btnNext');
+        const $btnExtra = document.getElementById('btnExtra');
+        const $btnStart = document.getElementById('btnStart');
+        const $btnReset = document.getElementById('btnReset');
+        const $deckInfo = document.getElementById('deck-info');
+        const $settleModal = document.getElementById('settleModal');
+        const $settleContent = document.getElementById('settleContent');
+        const $specialP1 = document.getElementById('specialP1');
+        const $specialP2 = document.getElementById('specialP2');
+
+        // ==================== UI渲染 ====================
+        function renderAll() {
+            updateTopBar();
+            updateBanner();
+            updateZoneHighlight();
+            renderBoard(1);
+            renderBoard(2);
+            renderHand(1);
+            renderHand(2);
+            updateButtons();
+            updateDeckInfo();
+            updateSpecialBadges();
+        }
+
+        function updateTopBar() {
+            let roundText = '第' + game.normalRound + '局';
+            if (game.extraRound > 0) {
+                roundText += ' 第' + game.extraRound + '额外局';
+            }
+            $roundDisplay.textContent = roundText;
+            $scoreP1.textContent = '玩家1 大分: ' + game.p1BigScore;
+            $scoreP2.textContent = '玩家2 大分: ' + game.p2BigScore;
+            if (game.started && game.phase !== 'idle' && game.phase !== 'finalEnd') {
+                const p1Txt = game.currentDecisionPlayer === 1 ? '🎯决策中' : '等待中';
+                const p2Txt = game.currentDecisionPlayer === 2 ? '🎯决策中' : '等待中';
+                $turnIndicator.textContent = 'P1:' + p1Txt + ' | P2:' + p2Txt;
+            } else {
+                $turnIndicator.textContent = game.phase === 'finalEnd' ? '游戏结束' : '准备开始';
+            }
+        }
+
+        function updateBanner() {
+            $banner.classList.remove('active-player1', 'active-player2', 'settlement');
+            if (game.phase === 'settlement') {
+                $banner.textContent = '📋 结算中...';
+                $banner.classList.add('settlement');
+            } else if (game.phase === 'waitingP1') {
+                $banner.textContent = '🎯 请玩家1决策';
+                $banner.classList.add('active-player1');
+            } else if (game.phase === 'waitingP2') {
+                $banner.textContent = '🎯 请玩家2决策';
+                $banner.classList.add('active-player2');
+            } else if (game.phase === 'finalEnd') {
+                $banner.textContent = '🏆 游戏结束！';
+                $banner.classList.add('settlement');
+            } else if (game.phase === 'roundEnd') {
+                $banner.textContent = '📋 本局结算完成';
+                $banner.classList.add('settlement');
+            } else if (game.phase === 'idle') {
+                $banner.textContent = '准备开始游戏';
+            } else {
+                $banner.textContent = '...';
+            }
+        }
+
+        function updateZoneHighlight() {
+            $zoneP1.classList.toggle('active-turn', game.currentDecisionPlayer === 1 && game.phase === 'waitingP1');
+            $zoneP2.classList.toggle('active-turn', game.currentDecisionPlayer === 2 && game.phase === 'waitingP2');
+        }
+
+        function renderBoard(player) {
+            const container = player === 1 ? $boardP1 : $boardP2;
+            const board = player === 1 ? game.p1Board : game.p2Board;
+            const rowLabels = ['一', '二', '三'];
+            const rowSizes = [3, 5, 5];
+            let html = '';
+            for (let r = 0; r < 3; r++) {
+                html += '<div class="board-row">';
+                html += '<span class="board-row-label">' + rowLabels[r] + '</span>';
+                for (let c = 0; c < rowSizes[r]; c++) {
+                    const cellCard = board[r][c] || null;
+                    const isFilled = !!cellCard;
+                    const isSelected = game.selectedTarget && game.selectedTarget.player === player && game.selectedTarget
+                        .row === r && game.selectedTarget.col === c;
+                    let cellClass = 'board-cell';
+                    if (isFilled) cellClass += ' filled';
+                    if (isSelected) cellClass += ' selected-target';
+                    html += '<div class="' + cellClass + '" data-player="' + player + '" data-row="' + r + '" data-col="' +
+                        c + '">';
+                    if (cellCard) {
+                        html += '<div class="card ' + getCardColorClass(cellCard.color) + '">';
+                        html += renderCardHTML(cellCard);
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function renderHand(player) {
+            const container = player === 1 ? $handP1 : $handP2;
+            const hand = player === 1 ? game.p1Hand : game.p2Hand;
+            let html = '';
+            hand.forEach((card, idx) => {
+                const isSelected = game.selectedCard && game.selectedCard.player === player && game.selectedCard
+                    .cardIndex === idx;
+                html += '<div class="card ' + getCardColorClass(card.color) + (isSelected ? ' selected' : '') +
+                    '" data-player="' + player + '" data-card-index="' + idx + '">';
+                html += renderCardHTML(card);
+                html += '</div>';
+            });
+            if (hand.length === 0) {
+                html = '<span style="color:#888;font-size:0.85rem;">（无手牌）</span>';
+            }
+            container.innerHTML = html;
+        }
+
+        function renderCardHTML(card) {
+            const numClass = isSmallNumFont(card.number) ? 'small-num' : '';
+            let html = '<span class="card-num ' + numClass + '">' + card.number + '</span>';
+            html += '<span class="card-color-dot" style="background:' + getColorDotColor(card.color) + ';"></span>';
+            return html;
+        }
+
+        function getColorDotColor(color) {
+            const map = { red: '#cc3333', yellow: '#ccaa00', blue: '#3366cc', green: '#33aa33' };
+            return map[color] || '#888';
+        }
+
+        function updateButtons() {
+            const phase = game.phase;
+            $btnConfirm.style.display = 'inline-block';
+            $btnConfirm.disabled = true;
+            $btnNext.style.display = 'none';
+            $btnExtra.style.display = 'none';
+            $btnStart.style.display = 'none';
+            $btnReset.style.display = 'inline-block';
+
+            if (phase === 'idle') {
+                $btnConfirm.style.display = 'none';
+                $btnStart.style.display = 'inline-block';
+            } else if (phase === 'waitingP1' || phase === 'waitingP2') {
+                const player = game.currentDecisionPlayer;
+                const placed = game.placedCount[player] || 0;
+                const required = game.requiredPlacements;
+                $btnConfirm.disabled = placed < required;
+            } else if (phase === 'settlement') {
+                $btnConfirm.style.display = 'none';
+            } else if (phase === 'roundEnd') {
+                $btnConfirm.style.display = 'none';
+            } else if (phase === 'finalEnd') {
+                $btnConfirm.style.display = 'none';
+                $btnStart.style.display = 'none';
+            }
+        }
+
+        function updateDeckInfo() {
+            const remaining = game.deck ? game.deck.length : 36;
+            $deckInfo.textContent = '牌堆剩余: ' + remaining;
+        }
+
+        function updateSpecialBadges() {
+            $specialP1.classList.toggle('active', game.p1Special);
+            $specialP2.classList.toggle('active', game.p2Special);
+        }
+
+        // ==================== 事件处理 ====================
+        document.addEventListener('click', function(e) {
+            const boardCell = e.target.closest('.board-cell');
+            if (boardCell) {
+                const player = parseInt(boardCell.dataset.player);
+                const row = parseInt(boardCell.dataset.row);
+                const col = parseInt(boardCell.dataset.col);
+                handleBoardCellClick(player, row, col);
+                return;
+            }
+            const handCard = e.target.closest('.card');
+            if (handCard) {
+                const player = parseInt(handCard.dataset.player);
+                const cardIndex = parseInt(handCard.dataset.cardIndex);
+                handleHandCardClick(player, cardIndex);
+                return;
+            }
+        });
+
+        function handleHandCardClick(player, cardIndex) {
+            if (game.phase !== 'waitingP1' && game.phase !== 'waitingP2') return;
+            if (game.currentDecisionPlayer !== player) return;
+            if (cardIndex >= game[player === 1 ? 'p1Hand' : 'p2Hand'].length) return;
+            if (game.selectedCard && game.selectedCard.player === player && game.selectedCard.cardIndex === cardIndex) {
+                game.selectedCard = null;
+            } else {
+                game.selectedCard = { player, cardIndex };
+                game.selectedTarget = null;
+            }
+            renderAll();
+        }
+
+        function handleBoardCellClick(player, row, col) {
+            if (game.phase !== 'waitingP1' && game.phase !== 'waitingP2') return;
+            if (game.currentDecisionPlayer !== player) return;
+            const board = player === 1 ? game.p1Board : game.p2Board;
+            const cellCard = board[row][col] || null;
+
+            if (!game.selectedCard || game.selectedCard.player !== player) {
+                // 没有选中手牌，尝试取回
+                if (cellCard) {
+                    // 检查是否为本阶段新放置的牌
+                    if (game.tempPlacedIds[player].has(cellCard.id)) {
+                        const hand = player === 1 ? game.p1Hand : game.p2Hand;
+                        board[row][col] = null;
+                        hand.push(cellCard);
+                        game.placedCount[player] = (game.placedCount[player] || 0) - 1;
+                        game.tempPlacedIds[player].delete(cellCard.id);
+                        game.selectedCard = null;
+                        game.selectedTarget = null;
+                        renderAll();
+                    } else {
+                        // 不能取回旧牌，给予视觉提示
+                        const cells = document.querySelectorAll('.board-cell');
+                        cells.forEach(el => {
+                            if (parseInt(el.dataset.player) === player && parseInt(el.dataset.row) === row &&
+                                parseInt(el.dataset.col) === col) {
+                                el.classList.add('invalid-drop');
+                                setTimeout(() => el.classList.remove('invalid-drop'), 400);
+                            }
+                        });
+                    }
+                }
+                return;
+            }
+
+            // 已选中手牌
+            if (cellCard) {
+                game.selectedTarget = { player, row, col };
+                renderAll();
+                const cells = document.querySelectorAll('.board-cell');
+                cells.forEach(el => {
+                    if (parseInt(el.dataset.player) === player && parseInt(el.dataset.row) === row && parseInt(el
+                            .dataset.col) === col) {
+                        el.classList.add('invalid-drop');
+                        setTimeout(() => el.classList.remove('invalid-drop'), 400);
+                    }
+                });
+                return;
+            }
+
+            // 放置牌
+            const hand = player === 1 ? game.p1Hand : game.p2Hand;
+            const card = hand[game.selectedCard.cardIndex];
+            hand.splice(game.selectedCard.cardIndex, 1);
+            board[row][col] = card;
+            game.placedCount[player] = (game.placedCount[player] || 0) + 1;
+            game.tempPlacedIds[player].add(card.id);
+            game.selectedCard = null;
+            game.selectedTarget = null;
+            renderAll();
+        }
+
+        $btnConfirm.addEventListener('click', function() {
+            if (game.phase !== 'waitingP1' && game.phase !== 'waitingP2') return;
+            const player = game.currentDecisionPlayer;
+            const placed = game.placedCount[player] || 0;
+            const required = game.requiredPlacements;
+            if (placed < required) return;
+            confirmPlacement(player);
+        });
+
+        $btnStart.addEventListener('click', function() {
+            startNewGame();
+        });
+
+        $btnReset.addEventListener('click', function() {
+            if (confirm('确定要重新开始吗？')) {
+                resetGame();
+                renderAll();
+            }
+        });
+
+        $btnNext.addEventListener('click', function() {
+            if (game.phase === 'roundEnd') {
+                proceedToNextNormalRound();
+            }
+        });
+
+        $btnExtra.addEventListener('click', function() {
+            if (game.phase === 'roundEnd') {
+                proceedToExtraRound();
+            }
+        });
+
+        // ==================== 游戏流程 ====================
+        function resetGame() {
+            game = {
+                started: false,
+                normalRound: 1,
+                extraRound: 0,
+                roundKey: 'R1',
+                firstPlayer: 1,
+                secondPlayer: 2,
+                p1Special: false,
+                p2Special: false,
+                p1BigScore: 0,
+                p2BigScore: 0,
+                records: [],
+                deck: [],
+                p1Board: [
+                    [],
+                    [],
+                    []
+                ],
+                p2Board: [
+                    [],
+                    [],
+                    []
+                ],
+                p1Hand: [],
+                p2Hand: [],
+                phase: 'idle',
+                selectedCard: null,
+                selectedTarget: null,
+                requiredPlacements: 0,
+                placedCount: { 1: 0, 2: 0 },
+                currentDecisionPlayer: null,
+                pendingDiscard: { 1: 0, 2: 0 },
+                extraFlow: null,
+                extraFlowStep: 0,
+                normalRoundStep: 0,
+                tempPlacedIds: { 1: new Set(), 2: new Set() },
+                dealtThisTurn: { 1: 0, 2: 0 },
+                settleData: null,
+            };
+            $settleModal.style.display = 'none';
+            renderAll();
+        }
+
+        function startNewGame() {
+            resetGame();
+            game.started = true;
+            game.normalRound = 1;
+            game.extraRound = 0;
+            game.roundKey = 'R1';
+            game.firstPlayer = 1;
+            game.secondPlayer = 2;
+            game.phase = 'roundEnd';
+            beginRound();
+        }
+
+        function beginRound() {
+            game.deck = shuffleArray(createDeck());
+            game.p1Board = [
+                [],
+                [],
+                []
+            ];
+            game.p2Board = [
+                [],
+                [],
+                []
+            ];
+            game.p1Hand = [];
+            game.p2Hand = [];
+            game.placedCount = { 1: 0, 2: 0 };
+            game.selectedCard = null;
+            game.selectedTarget = null;
+            game.pendingDiscard = { 1: 0, 2: 0 };
+            game.extraFlow = null;
+            game.extraFlowStep = 0;
+            game.normalRoundStep = 0;
+            game.tempPlacedIds = { 1: new Set(), 2: new Set() };
+            game.dealtThisTurn = { 1: 0, 2: 0 };
+
+            const fp = game.firstPlayer;
+            const sp = game.secondPlayer;
+
+            if (game.extraRound === 0) {
+                game.currentDecisionPlayer = fp;
+                game.requiredPlacements = 5;
+                game.phase = fp === 1 ? 'waitingP1' : 'waitingP2';
+                game.dealtThisTurn[fp] = 5;
+                dealCardsToPlayer(fp, 5);
+                game.placedCount[fp] = 0;
+                game.placedCount[sp] = 0;
+            } else {
+                if (game.p1Special && game.p2Special) {
+                    game.extraFlow = 'bothSpecial';
+                    game.extraFlowStep = 0;
+                    game.currentDecisionPlayer = fp;
+                    game.requiredPlacements = 13;
+                    game.phase = fp === 1 ? 'waitingP1' : 'waitingP2';
+                    game.dealtThisTurn[fp] = 14;
+                    dealCardsToPlayer(fp, 14);
+                    game.placedCount[fp] = 0;
+                    game.placedCount[sp] = 0;
+                } else {
+                    game.extraFlow = 'oneSpecial';
+                    game.extraFlowStep = 0;
+                    game.currentDecisionPlayer = fp;
+                    game.requiredPlacements = 5;
+                    game.phase = fp === 1 ? 'waitingP1' : 'waitingP2';
+                    game.dealtThisTurn[fp] = 5;
+                    dealCardsToPlayer(fp, 5);
+                    game.placedCount[fp] = 0;
+                    game.placedCount[sp] = 0;
+                }
+            }
+            renderAll();
+        }
+
+        function dealCardsToPlayer(player, count) {
+            const hand = player === 1 ? game.p1Hand : game.p2Hand;
+            for (let i = 0; i < count; i++) {
+                if (game.deck.length > 0) {
+                    hand.push(game.deck.pop());
+                }
+            }
+        }
+
+        function confirmPlacement(player) {
+            const hand = player === 1 ? game.p1Hand : game.p2Hand;
+            const fp = game.firstPlayer;
+            const sp = game.secondPlayer;
+
+            // 验证手牌数量是否符合预期
+            const required = game.requiredPlacements;
+            const dealtCount = game.dealtThisTurn[player] || 0;
+            const expectedRemaining = dealtCount - required;
+            if (hand.length !== expectedRemaining) {
+                alert('手牌数量异常：当前剩 ' + hand.length + ' 张，应剩 ' + expectedRemaining + ' 张。请检查是否多选或取回了旧牌。');
+                return;
+            }
+
+            // 弃掉多余手牌
+            for (let i = 0; i < hand.length; i++) {
+                hand.pop();
+            }
+            // 清空临时放置集合，这些牌成为永久牌
+            game.tempPlacedIds[player].clear();
+
+            // 根据阶段进行流程转移
+            if (game.extraRound === 0) {
+                // 正常局
+                if (player === fp) {
+                    if (required === 5) {
+                        // 先手5选5完成 -> 后手5选5
+                        game.currentDecisionPlayer = sp;
+                        game.requiredPlacements = 5;
+                        game.phase = sp === 1 ? 'waitingP1' : 'waitingP2';
+                        game.dealtThisTurn[sp] = 5;
+                        dealCardsToPlayer(sp, 5);
+                        game.placedCount[sp] = 0;
+                    } else if (required === 2) {
+                        // 先手完成一次3选2 -> 切换到后手
+                        game.currentDecisionPlayer = sp;
+                        game.requiredPlacements = 2;
+                        game.phase = sp === 1 ? 'waitingP1' : 'waitingP2';
+                        game.dealtThisTurn[sp] = 3;
+                        dealCardsToPlayer(sp, 3);
+                        game.placedCount[sp] = 0;
+                    }
+                } else if (player === sp) {
+                    if (required === 5) {
+                        // 后手5选5完成 -> 先手开始第一轮3选2
+                        game.normalRoundStep = 0;
+                        game.currentDecisionPlayer = fp;
+                        game.requiredPlacements = 2;
+                        game.phase = fp === 1 ? 'waitingP1' : 'waitingP2';
+                        game.dealtThisTurn[fp] = 3;
+                        dealCardsToPlayer(fp, 3);
+                        game.placedCount[fp] = 0;
+                    } else if (required === 2) {
+                        // 后手完成一次3选2 -> 轮数+1
+                        game.normalRoundStep++;
+                        if (game.normalRoundStep >= NORMAL_THREE_TWO_ROUNDS) {
+                            // 4轮完成，进入结算
+                            game.phase = 'settlement';
+                            game.currentDecisionPlayer = null;
+                            game.selectedCard = null;
+                            game.selectedTarget = null;
+                            renderAll();
+                            performSettlement();
+                            return;
+                        } else {
+                            // 进入下一轮：先手3选2
+                            game.currentDecisionPlayer = fp;
+                            game.requiredPlacements = 2;
+                            game.phase = fp === 1 ? 'waitingP1' : 'waitingP2';
+                            game.dealtThisTurn[fp] = 3;
+                            dealCardsToPlayer(fp, 3);
+                            game.placedCount[fp] = 0;
+                        }
+                    }
+                }
+                game.selectedCard = null;
+                game.selectedTarget = null;
+                renderAll();
+            } else {
+                // 额外局
+                if (game.extraFlow === 'oneSpecial') {
+                    if (player === fp) {
+                        if (required === 5) {
+                            game.requiredPlacements = 2;
+                            game.dealtThisTurn[fp] = 3;
+                            dealCardsToPlayer(fp, 3);
+                            game.placedCount[fp] = 0;
+                        } else if (required === 2) {
+                            const fpBoardCount = countBoardFilled(fp);
+                            if (fpBoardCount >= 13) {
+                                game.currentDecisionPlayer = sp;
+                                game.requiredPlacements = 13;
+                                game.phase = sp === 1 ? 'waitingP1' : 'waitingP2';
+                                game.dealtThisTurn[sp] = 14;
+                                dealCardsToPlayer(sp, 14);
+                                game.placedCount[sp] = 0;
+                            } else {
+                                game.requiredPlacements = 2;
+                                game.dealtThisTurn[fp] = 3;
+                                dealCardsToPlayer(fp, 3);
+                                game.placedCount[fp] = 0;
+                            }
+                        }
+                    } else if (player === sp) {
+                        if (required === 13) {
+                            game.phase = 'settlement';
+                            game.currentDecisionPlayer = null;
+                            game.selectedCard = null;
+                            game.selectedTarget = null;
+                            renderAll();
+                            performSettlement();
+                            return;
+                        }
+                    }
+                } else if (game.extraFlow === 'bothSpecial') {
+                    if (player === fp) {
+                        if (required === 13) {
+                            game.currentDecisionPlayer = sp;
+                            game.requiredPlacements = 13;
+                            game.phase = sp === 1 ? 'waitingP1' : 'waitingP2';
+                            game.dealtThisTurn[sp] = 14;
+                            dealCardsToPlayer(sp, 14);
+                            game.placedCount[sp] = 0;
+                        }
+                    } else if (player === sp) {
+                        if (required === 13) {
+                            game.phase = 'settlement';
+                            game.currentDecisionPlayer = null;
+                            game.selectedCard = null;
+                            game.selectedTarget = null;
+                            renderAll();
+                            performSettlement();
+                            return;
+                        }
+                    }
+                }
+                game.selectedCard = null;
+                game.selectedTarget = null;
+                renderAll();
+            }
+            updateButtons();
+            renderAll();
+        }
+
+        function countBoardFilled(player) {
+            const board = player === 1 ? game.p1Board : game.p2Board;
+            let count = 0;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < board[r].length; c++) {
+                    if (board[r][c]) count++;
+                }
+            }
+            return count;
+        }
+
+        function performSettlement() {
+            const p1Board = game.p1Board;
+            const p2Board = game.p2Board;
+
+            const p1Judges = p1Board.map(row => judgeCards(row.filter(c => c !== null)));
+            const p2Judges = p2Board.map(row => judgeCards(row.filter(c => c !== null)));
+
+            const p1Bust = checkBust(p1Judges);
+            const p2Bust = checkBust(p2Judges);
+
+            let p1SmallScore = 0;
+            let p2SmallScore = 0;
+            const p1RowScores = [0, 0, 0];
+            const p2RowScores = [0, 0, 0];
+
+            if (!p1Bust) {
+                for (let r = 0; r < 3; r++) {
+                    p1RowScores[r] = calculateRowScore(r, p1Board[r].filter(c => c !== null), p1Judges[r]);
+                    p1SmallScore += p1RowScores[r];
+                }
+            }
+
+            if (!p2Bust) {
+                for (let r = 0; r < 3; r++) {
+                    p2RowScores[r] = calculateRowScore(r, p2Board[r].filter(c => c !== null), p2Judges[r]);
+                    p2SmallScore += p2RowScores[r];
+                }
+            }
+
+            const p1WinRows = [false, false, false];
+            const p2WinRows = [false, false, false];
+            for (let r = 0; r < 3; r++) {
+                if (p1Bust && p2Bust) {
+                    // 平
+                } else if (p1Bust) {
+                    p2WinRows[r] = true;
+                    p2SmallScore += 1;
+                } else if (p2Bust) {
+                    p1WinRows[r] = true;
+                    p1SmallScore += 1;
+                } else {
+                    const cmp = compareJudgeResults(p1Judges[r], p2Judges[r]);
+                    if (cmp > 0) {
+                        p1WinRows[r] = true;
+                        p1SmallScore += 1;
+                    } else if (cmp < 0) {
+                        p2WinRows[r] = true;
+                        p2SmallScore += 1;
+                    }
+                }
+            }
+
+            const p1Sweep = p1WinRows[0] && p1WinRows[1] && p1WinRows[2] && !p1Bust;
+            const p2Sweep = p2WinRows[0] && p2WinRows[1] && p2WinRows[2] && !p2Bust;
+            if (p1Sweep) p1SmallScore += 3;
+            if (p2Sweep) p2SmallScore += 3;
+
+            const p1Big = calculateBigScore(p1SmallScore);
+            const p2Big = calculateBigScore(p2SmallScore);
+            game.p1BigScore += p1Big;
+            game.p2BigScore += p2Big;
+
+            const p1PrevSpecial = game.p1Special;
+            const p2PrevSpecial = game.p2Special;
+            const p1NewSpecial = checkSpecialTrigger(p1Judges[0], p1Judges[2], p1Bust, p1PrevSpecial);
+            const p2NewSpecial = checkSpecialTrigger(p2Judges[0], p2Judges[2], p2Bust, p2PrevSpecial);
+            const p1SpecialTriggered = !p1PrevSpecial && p1NewSpecial;
+            const p2SpecialTriggered = !p2PrevSpecial && p2NewSpecial;
+            const p1SpecialLost = p1PrevSpecial && !p1NewSpecial;
+            const p2SpecialLost = p2PrevSpecial && !p2NewSpecial;
+            game.p1Special = p1NewSpecial;
+            game.p2Special = p2NewSpecial;
+
+            const record = {
+                roundKey: game.roundKey,
+                normalRound: game.normalRound,
+                extraRound: game.extraRound,
+                firstPlayer: game.firstPlayer,
+                secondPlayer: game.secondPlayer,
+                p1SmallScore,
+                p2SmallScore,
+                p1Big,
+                p2Big,
+                p1Bust,
+                p2Bust,
+                p1Sweep,
+                p2Sweep,
+                p1RowJudges: p1Judges.map(j => j.rankName),
+                p2RowJudges: p2Judges.map(j => j.rankName),
+                p1RowScores,
+                p2RowScores,
+                p1WinRows,
+                p2WinRows,
+                p1SpecialTriggered,
+                p2SpecialTriggered,
+                p1SpecialLost,
+                p2SpecialLost,
+                p1SpecialState: p1NewSpecial,
+                p2SpecialState: p2NewSpecial,
+            };
+            game.records.push(record);
+            game.settleData = record;
+
+            showSettlementModal(record);
+            game.phase = 'roundEnd';
+            game.currentDecisionPlayer = null;
+            renderAll();
+        }
+
+        function showSettlementModal(record) {
+            const isExtra = record.extraRound > 0;
+            const title = isExtra ? '📋 额外局结算' : '📋 第' + record.normalRound + '局结算';
+            let html = '<h2>' + title + '</h2>';
+            html += '<div class="settle-row">';
+
+            html += '<div class="settle-player p1s"><h3>🎮 玩家1</h3>';
+            if (record.p1Bust) {
+                html += '<div class="settle-line"><span class="label">状态</span><span class="value bust">❌ 爆牌！</span></div>';
+            } else {
+                html += '<div class="settle-line"><span class="label">状态</span><span class="value">✅ 有效</span></div>';
+            }
+            for (let r = 0; r < 3; r++) {
+                const rowName = ['第一行', '第二行', '第三行'][r];
+                const jName = record.p1RowJudges[r];
+                const rowScore = record.p1RowScores[r];
+                const winMark = record.p1WinRows[r] ? ' 🏅' : '';
+                html += '<div class="settle-line"><span class="label">' + rowName + '</span><span class="value">' + jName +
+                    ' (' + rowScore + '分)' + winMark + '</span></div>';
+            }
+            if (record.p1Sweep) {
+                html += '<div class="settle-line"><span class="label">通杀</span><span class="value sweep">🔥 +3分</span></div>';
+            }
+            if (record.p1SpecialTriggered) {
+                html += '<div class="settle-line"><span class="label">特殊牌型</span><span class="value special-trigger">✨ 达成！</span></div>';
+            }
+            if (record.p1SpecialLost) {
+                html += '<div class="settle-line"><span class="label">特殊牌型</span><span class="value">➖ 回归正常</span></div>';
+            }
+            html += '<div class="settle-line"><span class="label">小分</span><span class="value highlight">' + record
+                .p1SmallScore + '</span></div>';
+            html += '<div class="settle-line"><span class="label">大分</span><span class="value highlight">+' + record.p1Big +
+                '</span></div>';
+            html += '</div>';
+
+            html += '<div class="settle-player p2s"><h3>🎮 玩家2</h3>';
+            if (record.p2Bust) {
+                html += '<div class="settle-line"><span class="label">状态</span><span class="value bust">❌ 爆牌！</span></div>';
+            } else {
+                html += '<div class="settle-line"><span class="label">状态</span><span class="value">✅ 有效</span></div>';
+            }
+            for (let r = 0; r < 3; r++) {
+                const rowName = ['第一行', '第二行', '第三行'][r];
+                const jName = record.p2RowJudges[r];
+                const rowScore = record.p2RowScores[r];
+                const winMark = record.p2WinRows[r] ? ' 🏅' : '';
+                html += '<div class="settle-line"><span class="label">' + rowName + '</span><span class="value">' + jName +
+                    ' (' + rowScore + '分)' + winMark + '</span></div>';
+            }
+            if (record.p2Sweep) {
+                html += '<div class="settle-line"><span class="label">通杀</span><span class="value sweep">🔥 +3分</span></div>';
+            }
+            if (record.p2SpecialTriggered) {
+                html += '<div class="settle-line"><span class="label">特殊牌型</span><span class="value special-trigger">✨ 达成！</span></div>';
+            }
+            if (record.p2SpecialLost) {
+                html += '<div class="settle-line"><span class="label">特殊牌型</span><span class="value">➖ 回归正常</span></div>';
+            }
+            html += '<div class="settle-line"><span class="label">小分</span><span class="value highlight">' + record
+                .p2SmallScore + '</span></div>';
+            html += '<div class="settle-line"><span class="label">大分</span><span class="value highlight">+' + record.p2Big +
+                '</span></div>';
+            html += '</div>';
+
+            html += '</div>';
+
+            html += '<div class="btn-row">';
+            const anySpecial = record.p1SpecialState || record.p2SpecialState;
+            if (anySpecial && game.normalRound <= TOTAL_NORMAL_ROUNDS) {
+                html += '<button class="btn btn-special" id="btnModalExtra">继续额外局</button>';
+            } else if (game.normalRound < TOTAL_NORMAL_ROUNDS) {
+                html += '<button class="btn btn-green" id="btnModalNext">继续下一局</button>';
+            } else if (game.normalRound >= TOTAL_NORMAL_ROUNDS && !anySpecial) {
+                html += '<button class="btn btn-gold" id="btnModalFinal">查看终局结果</button>';
+            } else {
+                html += '<button class="btn btn-green" id="btnModalNext">继续</button>';
+            }
+            html += '</div>';
+
+            $settleContent.innerHTML = html;
+            $settleModal.style.display = 'flex';
+
+            document.getElementById('btnModalExtra')?.addEventListener('click', function() {
+                $settleModal.style.display = 'none';
+                proceedToExtraRound();
+            });
+            document.getElementById('btnModalNext')?.addEventListener('click', function() {
+                $settleModal.style.display = 'none';
+                proceedToNextNormalRound();
+            });
+            document.getElementById('btnModalFinal')?.addEventListener('click', function() {
+                $settleModal.style.display = 'none';
+                showFinalResults();
+            });
+        }
+
+        function proceedToNextNormalRound() {
+            if (game.normalRound >= TOTAL_NORMAL_ROUNDS) {
+                if (game.p1Special || game.p2Special) {
+                    proceedToExtraRound();
+                } else {
+                    showFinalResults();
+                }
+                return;
+            }
+            game.normalRound++;
+            game.extraRound = 0;
+            game.roundKey = 'R' + game.normalRound;
+            if (game.normalRound % 2 === 1) {
+                game.firstPlayer = 1;
+                game.secondPlayer = 2;
+            } else {
+                game.firstPlayer = 2;
+                game.secondPlayer = 1;
+            }
+            game.phase = 'roundEnd';
+            beginRound();
+        }
+
+        function proceedToExtraRound() {
+            if (game.normalRound > TOTAL_NORMAL_ROUNDS) {
+                game.extraRound++;
+                game.roundKey = 'R' + game.normalRound + 'E' + game.extraRound;
+                if (game.p1Special && game.p2Special) {
+                    // 保持
+                } else if (game.p1Special) {
+                    game.firstPlayer = 2;
+                    game.secondPlayer = 1;
+                } else if (game.p2Special) {
+                    game.firstPlayer = 1;
+                    game.secondPlayer = 2;
+                }
+                game.phase = 'roundEnd';
+                beginRound();
+                return;
+            }
+
+            game.extraRound++;
+            game.roundKey = 'R' + game.normalRound + 'E' + game.extraRound;
+            if (game.p1Special && game.p2Special) {
+                // 保持
+            } else if (game.p1Special) {
+                game.firstPlayer = 2;
+                game.secondPlayer = 1;
+            } else if (game.p2Special) {
+                game.firstPlayer = 1;
+                game.secondPlayer = 2;
+            }
+            game.phase = 'roundEnd';
+            beginRound();
+        }
+
+        function showFinalResults() {
+            game.phase = 'finalEnd';
+            game.currentDecisionPlayer = null;
+            renderAll();
+
+            let html = '<h2>🏆 终局结果</h2>';
+            html += '<table class="final-table"><thead><tr><th>局次</th><th>玩家1小分</th><th>玩家2小分</th><th>玩家1大分</th><th>玩家2大分</th></tr></thead><tbody>';
+
+            for (const rec of game.records) {
+                let roundLabel = '第' + rec.normalRound + '局';
+                if (rec.extraRound > 0) roundLabel += ' 第' + rec.extraRound + '额外局';
+                html += '<tr><td>' + roundLabel + '</td><td>' + rec.p1SmallScore + '</td><td>' + rec.p2SmallScore +
+                    '</td><td>' + rec.p1Big + '</td><td>' + rec.p2Big + '</td></tr>';
+            }
+
+            const totalP1Small = game.records.reduce((s, r) => s + r.p1SmallScore, 0);
+            const totalP2Small = game.records.reduce((s, r) => s + r.p2SmallScore, 0);
+            const totalP1Big = game.records.reduce((s, r) => s + r.p1Big, 0);
+            const totalP2Big = game.records.reduce((s, r) => s + r.p2Big, 0);
+
+            html += '<tr class="total-row"><td>总计</td><td>' + totalP1Small + '</td><td>' + totalP2Small + '</td><td>' +
+                totalP1Big + '</td><td>' + totalP2Big + '</td></tr>';
+            html += '<tr class="vs-row"><td colspan="5">（总小分仅统计参考，平局决胜以总大分为准）</td></tr>';
+            html += '</tbody></table>';
+
+            let winnerText;
+            if (totalP1Big > totalP2Big) {
+                winnerText = '🎉 玩家1获胜！';
+            } else if (totalP2Big > totalP1Big) {
+                winnerText = '🎉 玩家2获胜！';
+            } else {
+                winnerText = '🤝 平局！';
+            }
+            html += '<h3 style="text-align:center;color:#ffd700;font-size:1.5rem;margin-top:10px;">' + winnerText + '</h3>';
+            html += '<div class="btn-row"><button class="btn btn-gold" id="btnModalRestart">再玩一局</button></div>';
+
+            $settleContent.innerHTML = html;
+            $settleModal.style.display = 'flex';
+            document.getElementById('btnModalRestart')?.addEventListener('click', function() {
+                $settleModal.style.display = 'none';
+                resetGame();
+                renderAll();
+            });
+        }
+
+        // ==================== 初始化 ====================
+        resetGame();
+        renderAll();
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (!$btnConfirm.disabled && $btnConfirm.style.display !== 'none') {
+                    $btnConfirm.click();
+                }
+            }
+            if (e.key === 'Escape') {
+                game.selectedCard = null;
+                game.selectedTarget = null;
+                renderAll();
+            }
+        });
+    </script>
+</body>
+</html>
