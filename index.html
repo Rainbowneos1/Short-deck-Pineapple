@@ -612,6 +612,7 @@
     </style>
 </head>
 <body>
+
     <div id="topbar">
         <div class="info">
             <span class="round-display" id="roundDisplay">第1局</span>
@@ -689,10 +690,6 @@
                 }
             }
             return deck;
-        }
-
-        function getCardDisplayName(card) {
-            return COLOR_NAMES[card.color] + ' ' + card.number;
         }
 
         function isSmallNumFont(num) {
@@ -944,10 +941,11 @@
             extraFlow: null,
             extraFlowStep: 0,
             normalRoundStep: 0,
-            // 新增：记录当前阶段玩家新放置的牌ID集合，用于限制取回
             tempPlacedIds: { 1: new Set(), 2: new Set() },
-            // 新增：记录当前阶段发给玩家的总牌数
             dealtThisTurn: { 1: 0, 2: 0 },
+            // 新增：记录最近一次双方都正常牌型的正常局的先后手
+            lastNormalFirstPlayer: 1,
+            lastNormalSecondPlayer: 2,
             settleData: null,
         };
 
@@ -1171,9 +1169,7 @@
             const cellCard = board[row][col] || null;
 
             if (!game.selectedCard || game.selectedCard.player !== player) {
-                // 没有选中手牌，尝试取回
                 if (cellCard) {
-                    // 检查是否为本阶段新放置的牌
                     if (game.tempPlacedIds[player].has(cellCard.id)) {
                         const hand = player === 1 ? game.p1Hand : game.p2Hand;
                         board[row][col] = null;
@@ -1184,7 +1180,6 @@
                         game.selectedTarget = null;
                         renderAll();
                     } else {
-                        // 不能取回旧牌，给予视觉提示
                         const cells = document.querySelectorAll('.board-cell');
                         cells.forEach(el => {
                             if (parseInt(el.dataset.player) === player && parseInt(el.dataset.row) === row &&
@@ -1198,7 +1193,6 @@
                 return;
             }
 
-            // 已选中手牌
             if (cellCard) {
                 game.selectedTarget = { player, row, col };
                 renderAll();
@@ -1213,7 +1207,6 @@
                 return;
             }
 
-            // 放置牌
             const hand = player === 1 ? game.p1Hand : game.p2Hand;
             const card = hand[game.selectedCard.cardIndex];
             hand.splice(game.selectedCard.cardIndex, 1);
@@ -1296,6 +1289,8 @@
                 normalRoundStep: 0,
                 tempPlacedIds: { 1: new Set(), 2: new Set() },
                 dealtThisTurn: { 1: 0, 2: 0 },
+                lastNormalFirstPlayer: 1,
+                lastNormalSecondPlayer: 2,
                 settleData: null,
             };
             $settleModal.style.display = 'none';
@@ -1389,7 +1384,6 @@
             const fp = game.firstPlayer;
             const sp = game.secondPlayer;
 
-            // 验证手牌数量是否符合预期
             const required = game.requiredPlacements;
             const dealtCount = game.dealtThisTurn[player] || 0;
             const expectedRemaining = dealtCount - required;
@@ -1398,19 +1392,14 @@
                 return;
             }
 
-            // 弃掉多余手牌
             for (let i = 0; i < hand.length; i++) {
                 hand.pop();
             }
-            // 清空临时放置集合，这些牌成为永久牌
             game.tempPlacedIds[player].clear();
 
-            // 根据阶段进行流程转移
             if (game.extraRound === 0) {
-                // 正常局
                 if (player === fp) {
                     if (required === 5) {
-                        // 先手5选5完成 -> 后手5选5
                         game.currentDecisionPlayer = sp;
                         game.requiredPlacements = 5;
                         game.phase = sp === 1 ? 'waitingP1' : 'waitingP2';
@@ -1418,7 +1407,6 @@
                         dealCardsToPlayer(sp, 5);
                         game.placedCount[sp] = 0;
                     } else if (required === 2) {
-                        // 先手完成一次3选2 -> 切换到后手
                         game.currentDecisionPlayer = sp;
                         game.requiredPlacements = 2;
                         game.phase = sp === 1 ? 'waitingP1' : 'waitingP2';
@@ -1428,7 +1416,6 @@
                     }
                 } else if (player === sp) {
                     if (required === 5) {
-                        // 后手5选5完成 -> 先手开始第一轮3选2
                         game.normalRoundStep = 0;
                         game.currentDecisionPlayer = fp;
                         game.requiredPlacements = 2;
@@ -1437,10 +1424,8 @@
                         dealCardsToPlayer(fp, 3);
                         game.placedCount[fp] = 0;
                     } else if (required === 2) {
-                        // 后手完成一次3选2 -> 轮数+1
                         game.normalRoundStep++;
                         if (game.normalRoundStep >= NORMAL_THREE_TWO_ROUNDS) {
-                            // 4轮完成，进入结算
                             game.phase = 'settlement';
                             game.currentDecisionPlayer = null;
                             game.selectedCard = null;
@@ -1449,7 +1434,6 @@
                             performSettlement();
                             return;
                         } else {
-                            // 进入下一轮：先手3选2
                             game.currentDecisionPlayer = fp;
                             game.requiredPlacements = 2;
                             game.phase = fp === 1 ? 'waitingP1' : 'waitingP2';
@@ -1463,7 +1447,6 @@
                 game.selectedTarget = null;
                 renderAll();
             } else {
-                // 额外局
                 if (game.extraFlow === 'oneSpecial') {
                     if (player === fp) {
                         if (required === 5) {
@@ -1642,6 +1625,12 @@
             game.records.push(record);
             game.settleData = record;
 
+            // 更新最近一次双方都正常牌型的正常局先后手
+            if (game.extraRound === 0 && !record.p1SpecialState && !record.p2SpecialState) {
+                game.lastNormalFirstPlayer = game.firstPlayer;
+                game.lastNormalSecondPlayer = game.secondPlayer;
+            }
+
             showSettlementModal(record);
             game.phase = 'roundEnd';
             game.currentDecisionPlayer = null;
@@ -1772,7 +1761,8 @@
                 game.extraRound++;
                 game.roundKey = 'R' + game.normalRound + 'E' + game.extraRound;
                 if (game.p1Special && game.p2Special) {
-                    // 保持
+                    game.firstPlayer = game.lastNormalFirstPlayer;
+                    game.secondPlayer = game.lastNormalSecondPlayer;
                 } else if (game.p1Special) {
                     game.firstPlayer = 2;
                     game.secondPlayer = 1;
@@ -1788,7 +1778,8 @@
             game.extraRound++;
             game.roundKey = 'R' + game.normalRound + 'E' + game.extraRound;
             if (game.p1Special && game.p2Special) {
-                // 保持
+                game.firstPlayer = game.lastNormalFirstPlayer;
+                game.secondPlayer = game.lastNormalSecondPlayer;
             } else if (game.p1Special) {
                 game.firstPlayer = 2;
                 game.secondPlayer = 1;
@@ -1822,7 +1813,7 @@
 
             html += '<tr class="total-row"><td>总计</td><td>' + totalP1Small + '</td><td>' + totalP2Small + '</td><td>' +
                 totalP1Big + '</td><td>' + totalP2Big + '</td></tr>';
-            html += '<tr class="vs-row"><td colspan="5">（总小分仅统计参考，决胜以总大分为准）</td></tr>';
+            html += '<tr class="vs-row"><td colspan="5">（总小分仅统计参考，平局决胜以总大分为准）</td></tr>';
             html += '</tbody></table>';
 
             let winnerText;
